@@ -29,7 +29,7 @@ Si no le asignamos valor, automaticamente va a ser 0
 Byte: represetna un numero entero de 8bits sin signo. Su dato por defecto es 0 
 
 Tipos de Datos Compuestos:
-
+<
 -------------
 
 * array => colección de elementos del mismo tipo
