@@ -525,3 +525,192 @@ go func() {
 // Recibir datos del canal
 valor := <-ch
 
+----------------------------
+
+CONCEPTOS ANTES DE LEER HTTP
+
+Apuntes de: https://www.youtube.com/watch?v=l2MihYAj0Iw
+
+Arquitectura Cliente - Servidor
+	- Cliente: realiza una peticion (request) al servidor y espera una respuesta. 
+	- Servidor: recibe la peticion y responde (response) al cliente.
+
+URL: Las http estan dentro de una url. Significa Localizador de Recursos Uniforme. Es la dirección especifica 
+que se le asgina a cada uno de los recursos disponibles en una red con la finalidad de que estos puedan ser
+localizados o identificados. Cada recurso (pagina,imagen,documento, etc) tiene una URL unica. 
+
+El servidor recibe esa request, la procesa y devuelve una response.
+
+http://www.google.com.ar/hola 
+
+http : PROTOCOLO
+www : SUBDOMINIO
+google : DOMINIO
+com : EXTENSIÓN 
+ar : GEOLOCALIZACION
+hola : RUTA 
+
+El protocolo HTTP: normas y reglas que nos sirven para estavlecer la comunicación entre el cliente y el servidor.
+Permite que las solicitudes y respuestas entre clientes y servidores, tengan un determinado formato. 
+El protocolo HTTP es un protocolo sin estado. Esto significa que cada peticion es independiente de la anterior.
+
+El protocolo HTTP establece la forma que tiene que tener tanto una request como una response: 
+
+Request => Estructura del paquete de peticion HTTP:
+    - Metodo: GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD. De que tipo es. 
+	- URL: dirección a la cual nos queremos comunicar. 
+	- Headers: metadatos de la peticion (tipo de contenido, longitud del contenido, etc). Ej: tipo .json 
+	- Body: el cuerpo de la peticion (opcional)
+
+Response => Estructura de la respuesta HTTP: 
+	- Status Codes: codigos que le permiten al cliente saber si la peticion fue exitosa o no (Ej: 404 Not Found) 
+	- Headers 
+	- Body: info si es necesaria
+
+Metodos del request: 
+- GET: obtener un recurso del servidor.
+- POST: enviar una entidad a un recurso en especifico. 
+- PUT: remplaza todas las representacioens actuales de recurso de destino con la carga util de la petición 
+- DELETE: Borra un recurso especifico 
+- PATCH: aplica modificaciones parciales a un recurso
+
+Archivos .json: 
+https://www.youtube.com/watch?v=RhxOTqFbI5Q
+http://youtube.com/watch?v=wKJPiWQgbDU
+
+Sintaxis: concepto clave - valor. 
+{
+	"nombre" : "Nahuel",
+	"edad" : 3,
+	"altura" : 1.77
+}
+
+Sintaxis en go:
+
+type Movie struct {
+	Title string `json:"title"`
+	Year  int    `json:"year"`
+	Color bool   `json:"color"`
+	Actors []string `json:"actors"`
+}
+
+Hay que crear un struct con los mismos campos que el json. Las etiquetas json:"nombre" le dicen a Go cómo hacer coincidir los nombres con los del archivo
+Para pasar de una estructura de go a un json, usamos la función json.Marshal(v interface{})([]byte, error) y para pasar de un json a una estructura de go, usamos la función json.Unmarshal(data []byte, v interface) error .
+
+Ejemplo con el struct Movie:
+
+func main() {
+	var movies = []Movie
+
+	data, err := json.Marshal(movies)
+	if err != nil {
+		log.Fatal("Error al convertir a JSON:", err.Error())
+	}
+
+	fmt.Println("%s", data)
+}
+
+Ejemplo 2:
+
+func main() {
+	var data =[]byte(...)
+
+	var movie []Movie
+
+	err := json.Unmarshal(data, &movie)
+	if err != nil {
+		log.Fatal("Error al convertir de struct", err.Error())
+	}
+}
+
+API'S
+
+Interfaz: capa de absrtaccion que permite la comunicación entre dos sistemas.
+API: Interfaz de Programación de Aplicaciones. Es...
+	- Es un conjunto de reglas y protocolos que permiten la comunicación entre diferentes sistemas.
+	- Es un conjunto de URLS para comunicarse con una app. 
+	- Un formato especifico de datos que se intercambian. 
+	- Un conjunto de funciones que podes usar desde un modulo a otro para pedirle que haga algo.
+
+Ejemplo: I/O le quiere pasar un nombre al kernel.
+La api del kernel puede tener una ruta como esta:
+
+POST http://localhost:8080/procesar-nombre
+
+---------------------
+
+HTTP Resumen de SSOO
+
+Alternativas para el pasaje de información:
+	1) query path: agregar la información en la ruta implicitamente 
+	2) query param: agregar la información en la ruta explicitamente
+	3) body: pasaje de información en un formato definido entre cliente-servidor
+
+El parametro body solo se encuentra disponible para los verbos PUT, POST Y PATCH 
+
+Para poder usarlo en go, usamos la biblioteca net/http
+Server-Side:
+
+func main(){
+
+	http.HandleFunc("GET /helloWorld", helloWorld)
+	http.ListenAndServe(":8080", nil)
+}
+
+func HelloWorld(w http.ResponseWriter, r *http.Request) {
+
+	respuesta, err := json.Marshal("Hola! Como andas?")
+	if err != nil {
+		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(respuesta)
+}
+En este caso, el endpoint lo tenemos en GET /hellowordl. El puerto estara en el 8080
+Esto inicializa y levanta la aplicación. 
+
+A traves de w http.ResponseWriter, le mandamos la respuesta al cliente.
+r *http.Request, es la peticion que nos llega del cliente. Desde ahi se puede leer el body, los parametros de la url, headers,
+metodos, etc. 												
+
+----------------------
+
+Con body
+
+Consideraciones:
+	- Utilizamos POST ya que GET no se puede 
+	- Utilizaremos la aplicación Postman que nos permite ejectuar distintos verbos
+
+type BodyRequest struct {
+	Name string `json:"name"`
+}
+
+func main() {
+	http.HandleFunc("POST /helloworld", HelloWorld)
+	http.ListenAndServe(":8080", nil)
+}
+
+func HelloWorld(w http.ResponseWriter, r *http.Request) {
+	var request BodyRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respuesta, err := json.Marshal(fmt.Sprintf("Hola %s! Como andas?", request.Name))
+	if err != nil {
+		http.Error(w, "Error al codificar los datos como JSON", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(respuesta)
+}
+
+Observaciones:
+	- Declaramos el struct body que recibimos como request 
+	- Usamos la funcion json.NewDecoder(r.body).Decode(&request) para decodificar el body y pasarlo a un struct.
+

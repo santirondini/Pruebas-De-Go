@@ -1,0 +1,12 @@
+
+Los configs solo tiene la IP. La IP la saco de ahi, todas las io van a tener la misma ip. 
+El config de i/o
+
+Cada modulo conoce su puerto. Esta en el config.
+IP Y PUERTO ESTA EN EL CONFIG.
+
+Kernel esta en el 8090: cada vez que yo le quiera enviar algo al kernel, tengo que poner la ruta que es:
+http:://localhost:8090/io/request
+
+Handler: la funcion que esta en el utils. Se ocupa de manipular las conexioes. Que hacer con los datos que llegaorn 
+Endpoint: 
