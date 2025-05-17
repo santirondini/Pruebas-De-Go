@@ -714,3 +714,6 @@ Observaciones:
 	- Declaramos el struct body que recibimos como request 
 	- Usamos la funcion json.NewDecoder(r.body).Decode(&request) para decodificar el body y pasarlo a un struct.
 
+EL HANDLER
+
+http:puertodeCpU/PIERTODECPU 
