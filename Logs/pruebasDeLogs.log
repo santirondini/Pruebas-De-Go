@@ -1,0 +1,7 @@
+2025/05/17 17:30:12 Nueva Prueba de log ---- 
+2025/05/17 17:30:12 ## PID: <1234> - Escritura - Dir. Física: <5678> - Tamaño: <1024>
+2025/05/17 17:30:12 ## PID: <1234> - Memory Dump solicitado
+2025/05/17 17:30:12 ## PID: <1234> - Obtener instrucción: <0> - Instrucción: <LOAD> < R1, 0x1000>
+2025/05/17 17:30:12 ## PID: <1234> - Proceso Creado - Tamaño: <1024>
+2025/05/17 17:30:12 ## PID: <1234> - Proceso Destruido - Metricas - Acc.T.Pag: <10>; Inst.Sol.: <20>; SWAP: <2>; Mem.Prin.: <3>; Lec.Mem.: <15>; Esc.Mem.: <5>
+2025/05/17 17:30:12 Fin de la prueba de log ---- 

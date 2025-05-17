@@ -1,0 +1,8 @@
+2025/05/17 17:15:36 Nueva Prueba de log
+2025/05/17 17:15:36 No se pudo crear el archivo Dump con el nombre open /home/utnso/dump_files//<1234>-<2025-05-17-17:15:36>.dmp: The filename, directory name, or volume label syntax is incorrect.
+2025/05/17 17:19:21 Nueva Prueba de log ---- 
+2025/05/17 17:19:21 Nombre del archivo dump:  <1234>-<2025-05-17-17:19:21>.dmp
+2025/05/17 17:19:21 No se pudo crear el archivo Dump con el nombre open /./<1234>-<2025-05-17-17:19:21>.dmp: The filename, directory name, or volume label syntax is incorrect.
+2025/05/17 17:21:29 Nueva Prueba de log ---- 
+2025/05/17 17:21:29 Nombre del archivo dump:  1234-2025-05-17-17-21-29.dmp
+2025/05/17 17:21:29 No se pudo crear el archivo Dump con el nombre open /./1234-2025-05-17-17-21-29.dmp: Access is denied.
