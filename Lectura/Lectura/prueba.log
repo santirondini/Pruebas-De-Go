@@ -1,0 +1,11 @@
+2025/05/27 01:23:12 Nueva prueba: 
+2025/05/27 01:23:12 Cantidad de intrucciones leidas: 8
+2025/05/27 01:23:12 Instruccion 0 LOAD A B C
+2025/05/27 01:23:12 Instruccion 1 ADD B
+2025/05/27 01:23:12 Instruccion 2 STORE C
+2025/05/27 01:23:12 Instruccion 3 HALT
+2025/05/27 01:23:12 Instruccion 4 EXIT
+2025/05/27 01:23:12 Instruccion 5 READ 0 20
+2025/05/27 01:23:12 Instruccion 6 GOTO
+2025/05/27 01:23:12 Instruccion 7 IO IMPRESORA 2000
+2025/05/27 01:23:12 Instrucciones decodificadas: [{LOAD [A B C]} {ADD [B]} {STORE [C]} {HALT []} {EXIT []} {READ [0 20]} {GOTO []} {IO [IMPRESORA 2000]}]

@@ -95,7 +95,7 @@ func main() {
 	// instruccionEnStruct = DecodificarInstruccion(instruccion) // se decodifica la instruccion
 	// log.Println("Instruccion decodificada:", instruccionEnStruct.Operacion) // se logea la instruccion decodificada
 	// log.Println("Operandos:", instruccionEnStruct.Operandos) // se logean los operandos
-	instrucciones := LeerArchivoYGuardarInstruccionesConScanner("instrucciones.txt") // se leen las instrucciones del archivo y se guardan en un slice
+	instrucciones := LeerArchivoYGuardarInstruccionesConScanner("santino.txt") // se leen las instrucciones del archivo y se guardan en un slice
 	i := 0
 	log.Println("Nueva prueba: ")
 	log.Println("Cantidad de intrucciones leidas:", len(instrucciones)) // se logea la cantidad de instrucciones leidas

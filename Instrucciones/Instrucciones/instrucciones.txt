@@ -1,4 +1,0 @@
-LOAD A B C
-ADD B
-STORE C
-HALT
