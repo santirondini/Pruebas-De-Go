@@ -83,7 +83,7 @@ func ObtenerAlumnosHandler(w http.ResponseWriter, r *http.Request) {
 func main(){
 		
 	ConfigurarLogger()
-	var alumnos []InfoAlumno
+	// var alumnos []InfoAlumno
 	 
 	
 	http.HandleFunc("/obtenerAlumnos", ObtenerAlumnosHandler)
