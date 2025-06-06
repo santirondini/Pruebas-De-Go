@@ -17,5 +17,39 @@ func ConfigurarLogger() {
 
 func main() {
 	ConfigurarLogger()
-	log.Println("Kernel iniciado") 
+	log.Println("Kernel iniciado")
+	
+	tablaConInt := []int{1, 2, 3, 4, 5}
+	log.Println("Tabla de enteros:", tablaConInt)
+
+
+	tablaConMap := map[int]int{
+		1: 10,
+		2: 20,
+		3: 30,
+		4: 40,
+		5: 50,
+	}
+	log.Println("Tabla con map:", tablaConMap)
+
+	var matrizConInt [3]string[]int
+	valor := 1
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			matrizConInt[i][j] = valor
+			valor++
+		}
+	}
+	log.Println("Matriz cargada:", matrizConInt)
+
+
+	matriz := [3][3]int{}
+	valor = 1
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			matriz[i][j] = valor
+			valor++
+		}
+	}
+	log.Println("Tabla 3x3:", matriz)
 }
