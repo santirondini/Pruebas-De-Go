@@ -8,7 +8,7 @@ import (
 )
 
 type Tabla struct {
-	Punteros []*Tabla
+	Punteros []*Tabla 
 	Valores []int 
 }
 
