@@ -209,7 +209,7 @@ func TraducirDireccion(config Config, tabla *Tabla, direccion []int) (int, error
 func main() {
 
 	niveles := 3
-	entradasPorNivel := 2
+	entradasPorNivel := 3
 
 	config := Config{
 		Niveles:  niveles,
@@ -230,7 +230,7 @@ func main() {
 
 
 	// Dirección en base 0 => como vectores 
-	direccion := []int{0,1,0,0}
+	direccion := []int{0,1,2,0}
 	fmt.Println("Dirección: ", direccion)
 	
 	frame, err := TraducirDireccion(config, tabla, direccion)
