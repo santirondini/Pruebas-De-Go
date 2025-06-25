@@ -209,7 +209,7 @@ func TraducirDireccion(config Config, tabla *Tabla, direccion []int) (int, error
 func main() {
 
 	niveles := 3
-	entradasPorNivel := 2
+	entradasPorNivel := 3
 
 	config := Config{
 		Niveles:  niveles,
