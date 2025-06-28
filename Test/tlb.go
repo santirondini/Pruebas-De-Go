@@ -8,7 +8,7 @@ import (
 // TLB
 
 type WriteInstruction struct {
-	Address int
+	LogicAddress int // Lógica
 	Data    string
 	PID     uint
 }
@@ -51,8 +51,8 @@ func TLBHabilitada() bool {
 }
 
 func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la pagina esta cargada en el TLB
-	i := 0
-	for i < len(tlb.Entradas) {
+	
+	for i := 0; i < len(tlb.Entradas);i++ {
 		if tlb.Entradas[i].NumeroPagina == pagina && tlb.Entradas[i].BitPresencia {
 			return true,i // La página está en la TLB y es válida
 		}
@@ -64,13 +64,13 @@ func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la p
 func AccesoATLB(pid int, nropagina int) int {
 	
 	if !TLBHabilitada() {
-		log.Fatal("TLB no habilitada, no se puede acceder a la TLB")
+		log.Println("TLB no habilitada, no se puede acceder a la TLB")
 		return -1 // TLB no habilitada, no se puede acceder a la
 	}
 	
 	bool, indice := BuscarDireccion(nropagina) // Verificamos si la página está en la TLB
 	if bool { 
-		log.Fatalf("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
+		log.Println("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
 		return tlb.Entradas[indice].NumeroFrame // Si la página está en la TLB, devolvemos el frame y true
 	} else {
 		log.Println("PID: < %d > - TLB MISS - Página: %d", pid, nropagina)

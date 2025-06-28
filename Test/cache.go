@@ -87,14 +87,16 @@ func FueModificada(pagina PaginaCache) bool {
 	return pagina.BitModificado
 }
 
-func EstaEnCache(pid uint, nropagina int) bool {
+func EstaEnCache(pid uint, direccionLogica int) bool {
 	if !CacheHabilitado() {
-		log.Fatalf("Caché no habilitada, no se puede verificar si la página está en caché")
+		log.Println("Caché no habilitada, no se puede verificar si la página está en caché")
 		return false 
 	}
 
+	paginaLogica := direccionLogica / tamanioPagina // Obtenemos el número de página
+
 	for _, pagina := range Cache.Paginas {
-		if pagina.PID == int(pid) && pagina.NumeroPagina == nropagina && pagina.BitPresencia {
+		if pagina.PID == int(pid) && pagina.NumeroPagina == paginaLogica && pagina.BitPresencia {
 			return true // La página está en la caché
 		}
 	}
@@ -104,7 +106,7 @@ func EstaEnCache(pid uint, nropagina int) bool {
 func ObtenerPaginaDeCache(pid uint, nropagina int) int {
 	
 	if !CacheHabilitado() {
-		log.Fatalf("Caché no habilitada, no se puede obtener la página de caché")
+		log.Println("Caché no habilitada, no se puede obtener la página de caché")
 		return -1
 	}
 
@@ -126,12 +128,12 @@ func MandarDatosAMP(paginas PaginaCache) {
 	}
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		log.Fatalf("Error al enviar la pagina a la memoria:", err)
+		log.Println("Error al enviar la pagina a la memoria:", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error al enviar la pagina a la memoria, status code: %d", resp.StatusCode)
+		log.Println("Error al enviar la pagina a la memoria, status code: %d", resp.StatusCode)
 		return
 	}
 	log.Println("Pagina enviada a la memoria correctamente")
@@ -198,13 +200,13 @@ func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
 	
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatalf("Error al pedir el frame a memoria: %v", err)
+		log.Println("Error al pedir el frame a memoria: %v", err)
 		return PaginaCache{}, err
 	}
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Error al pedir el frame a memoria, status code: %d", resp.StatusCode)
+		log.Println("Error al pedir el frame a memoria, status code: %d", resp.StatusCode)
 		return PaginaCache{}, fmt.Errorf("error al pedir el frame a memoria, status code: %d", resp.StatusCode)
 	}
 
@@ -212,7 +214,7 @@ func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
 	var frame []byte 
 	err = json.NewDecoder(resp.Body).Decode(&frame)
 	if err != nil {
-		log.Fatalf("Error al decodificar el frame: %v", err)
+		log.Println("Error al decodificar el frame: %v", err)
 		return PaginaCache{}, err
 	}
 
@@ -251,19 +253,21 @@ func RemplazarPaginaEnCache(pagina PaginaCache) {
 }
 
 
-func EscribirEnCache(pid uint, adress int, data string) {
+func EscribirEnCache(pid uint, logicAdress int, data string) {
 
-	indice := ObtenerPaginaDeCache(pid, adress)
+	nropagina := logicAdress / tamanioPagina // Obtenemos el numero de pagina
+	indice := ObtenerPaginaDeCache(pid, nropagina)
 	if indice == -1 {
-		log.Fatalf("Error al obtener la pagina de Cache")
+		log.Println("Error al obtener la pagina de Cache")
 		return
 	}
 
+	offset := logicAdress % tamanioPagina 
 	pagina := Cache.Paginas[indice].Contenido
-	copy(pagina[adress:], []byte(data)) // Escribimos el contenido en la pagina de Cache
+	copy(pagina[offset:], []byte(data)) // Escribimos el contenido en la pagina de Cache
 	Cache.Paginas[indice].Contenido = pagina // Actualizamos el contenido de la pagina en Cache
 	Cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
-	log.Println("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, adress, data)
+	log.Println("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, logicAdress, data)
 }
 
 func LeerDeCache(pid uint, adress int, tam int) []byte {
@@ -271,12 +275,12 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 	indice := ObtenerPaginaDeCache(pid, adress)
 	
 	if indice == -1 {
-		log.Fatalf("Fatalf al obtener la pagina de Cache")
+		log.Println("Println al obtener la pagina de Cache")
 		return nil
 	}
 
 	if indice < 0 || indice >= len(Cache.Paginas) {
-		log.Fatalf("Indice de pagina fuera de rango: %d", indice)
+		log.Println("Indice de pagina fuera de rango: %d", indice)
 		return nil 
 	}
 
@@ -285,7 +289,7 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 		contenido := pagina.Contenido[adress:adress+tam] // Leemos el contenido de la pagina en Cache
 		return contenido 
 	} else {
-		log.Fatalf("Pagina no encontrada en Cache o no pertenece al PID %d", pid)
+		log.Println("Pagina no encontrada en Cache o no pertenece al PID %d", pid)
 		return nil 
 	}
 }
@@ -323,15 +327,17 @@ func IndiceDeCacheVictima() int {
 
 func TraducirDireccion(pid uint, direccion int) int {
 
+	log.Println("Traduciendo dirección lógica a física")
 	paginaLogica := direccion / tamanioPagina 
 	offset := Desplazamiento(direccion, tamanioPagina) // Desplazamiento dentro de la página
 
+	log.Println("Accediendo a TLB")
 	// 1. Preguntamos a TLB
-	if AccesoATLB(int(pid), paginaLogica) != -1 {
-		frame := AccesoATLB(int(pid), paginaLogica) // Obtenemos el frame desde la TLB
+	frame := AccesoATLB(int(pid), paginaLogica) // Verificamos si la página está en la TLB
+	if frame != -1{
 		return frame * tamanioPagina + offset // Retornamos la dirección física
 	} 
-
+	log.Println("Página no encontrada en TLB, buscando en tabla de páginas - MMU")
 	// 2. Si no está en TLB, buscamos en la tabla de páginas
 	direccionFisica := MMU(pid, direccion) // Obtenemos el frame físico correspondiente a la página lógica
 	if direccionFisica == -1 {
@@ -347,62 +353,63 @@ func TraducirDireccion(pid uint, direccion int) int {
 }
 
 func Write(pid uint, inst WriteInstruction) {
-	
+
 	// Verificar si la página esta en Cache
-	if EstaEnCache(pid, inst.Address) {
+	if EstaEnCache(pid, inst.LogicAddress) {
 		log.Println("Página encontrada en caché, escribiendo directamente en caché")
-		nropagina := inst.Address / tamanioPagina // Obtenemos el número de página
-		EscribirEnCache(pid, nropagina, inst.Data) // Escribimos en la caché
+		EscribirEnCache(pid, inst.LogicAddress, inst.Data) // Escribimos en la caché
 		return
 	}
 
-	direccionFisica := TraducirDireccion(pid, inst.Address) // Traducimos la dirección lógica a física
+	direccionFisica := TraducirDireccion(pid, inst.LogicAddress) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {
-		log.Fatalf("Error al traducir la dirección lógica %d para el PID %d", inst.Address, pid)
+		log.Println("Error al traducir la dirección lógica %d para el PID %d", inst.LogicAddress, pid)
 		return
 	}
 
-	inst = WriteInstruction{
-		Address: direccionFisica, // Asignamos la dirección física
+	inst2 := WriteInstruction{
+		LogicAddress: direccionFisica, // Asignamos la dirección física
 		Data:    inst.Data, // Asignamos los datos a escribir
 		PID:     pid, // Asignamos el PID del proceso
 	}
 
-	resp := EnviarMensaje(Config.IPMemory, Config.PortMemory, "write" , inst)
+	log.Println("Mensaje mandado a memoria para escribir")
+	resp := EnviarMensaje(Config.IPMemory, Config.PortMemory, "write" , inst2)
 	if resp != "OK" {
-		log.Fatalf("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.Address)
+		log.Println("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.LogicAddress)
 		return
 	}
 
 	log.Println("Escritura exitosa. - Agregando página a caché")
 	
 	// Si la página no estaba en cache, pedirla a memoria
-	pagina, err := PedirFrameAMemoria(pid, inst.Address)
+	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress)
 	if err != nil {
-		log.Fatalf("Error al pedir el frame a memoria: %v", err)
+		log.Println("Error al pedir el frame a memoria: %v", err)
 		return
 	}
 
 	log.Println("PAGINA CACHE CREADA: ", pagina)
 	AgregarPaginaACache(pagina)
+	return 
 }
 
 type Respuesta struct {
 	Mensaje string
 }
 
-
 func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) string {
+	
 	body, err := json.Marshal(mensaje)
 	if err != nil {
-		log.Fatalf("No se pudo codificar el mensaje (%v)", err)
+		log.Println("No se pudo codificar el mensaje (%v)", err)
 		return ""
 	}
 
 	url := fmt.Sprintf("http://%s:%d/%s", ip, puerto, endpoint)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		log.Fatalf("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err)
+		log.Println("No se pudo enviar mensaje a %s:%d/%s (%v)", ip, puerto, endpoint, err)
 		return ""
 	}
 	defer resp.Body.Close()

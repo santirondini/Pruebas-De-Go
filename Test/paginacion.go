@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
+	"net/http"
+	// "time"
 )
 
 
@@ -161,17 +162,43 @@ func MostrarFramesOcupados() {
 func main() {
 
 	// MostrarCache()
+
+	// time.Sleep(2 * time.Second) // Espera para que se procese la escritura
+	// Write(1001, WriteInstruction{LogicAddress: 120, Data: "Santino Rondini", PID: 1001})
+
 	
-	Write(1001, WriteInstruction{Address: 0, Data: "Santino Rondini", PID: 1001})
-
-	time.Sleep(5 * time.Second) // Espera para que se procese la escritura
+	// time.Sleep(5 * time.Second) // Espera para que se procese la escritura
+	
 	MostrarCache()
-	MostrarTLB()
 
-	time.Sleep(5 * time.Second) // Espera para que se procese la escritura
-	Write(1001, WriteInstruction{Address: 20, Data: "Facultad de Ingenieria", PID: 1001})
+	
+	fmt.Println("--------------------------------------")
 
-	time.Sleep(10 * time.Second) // Espera para que se procese la escritura
-	MostrarCache()
-	MostrarTLB()
+	
+	// MostrarTLB()
+
+	
+	fmt.Println("--------------------------------------")
+
+	// time.Sleep(5 * time.Second) // Espera para que se procese la escritura
+	// Write(1001, WriteInstruction{LogicAddress: 250, Data: "Facultad de Ingenieria", PID: 1001})
+
+	
+	// fmt.Println("--------------------------------------")
+
+
+	// time.Sleep(10 * time.Second) // Espera para que se procese la escritura
+	// MostrarCache()
+
+
+	
+	// fmt.Println("--------------------------------------")
+	// MostrarTLB()
+
+
+
+	
+	// fmt.Println("--------------------------------------")
+
+	http.ListenAndServe(":8080", nil) // Inicia el servidor HTTP para manejar las solicitudes
 }
