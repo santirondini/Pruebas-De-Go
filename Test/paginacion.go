@@ -167,15 +167,8 @@ func EntradaNiveln(direccionlogica int, niveles int, idTabla int, pagesize int, 
 }
 
 
-
 func MMU(pid uint, direccionLogica int) int {
 
-	// configMemoria, err := PedirConfigMemoria()
-	// if err != nil {
-	// 	log.Println("No se pudo obtener la configuración de memoria: %v", err)
-	// 	return -1
-	// }
-	
 	desplazamiento := Desplazamiento(direccionLogica, tamanioPagina)
 	tabla := TDPMultinivel[pid] // Obtengo la tabla de páginas del PID
 
@@ -253,13 +246,15 @@ func main() {
 		Ocupadas[uint(i)] = FrameInfo{EstaOcupado: false, PID: -1}
 	}
 
+	fmt.Println("Marco los primeros 12 frames ocupados para el PID 111")
 	MarcarPrimerosNOcupados(12, 111)
 
+	fmt.Println("Creando tabla de páginas para el PID 15. Con tamaño de 128 bytes")
 	paginas := CantidadDePaginasDeProceso(128)
 	TDPMultinivel[15] = CreaTablaJerarquica(15, numeroDeNiveles, &paginas) // Crea una tabla jerárquica para el PID 15)
 	MostrarTablaArbol(TDPMultinivel[15], "", true) // Muestra la tabla jerárquica creada
 
-	fmt.Println("MMU PARA DIRECION 0 = ", MMU(15, 0)) // Prueba de MMU para la dirección lógica 0 del PID 15
+	fmt.Println("MMU para dirección 0 del proceso PID = 15 => ", MMU(15, 64)) // Prueba de MMU para la dirección lógica 0 del PID 15
 	
 	MostrarFramesOcupados()
 
