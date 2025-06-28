@@ -1,15 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
+	"time"
 )
 
 
-var entradasPorPagina = 3 // Cantidad de entradas por pagina
-var numeroDeNiveles = 2 // Cantidad de niveles de la tabla de paginas
+var entradasPorPagina = 4// Cantidad de entradas por pagina
+var numeroDeNiveles = 5  // Cantidad de niveles de la tabla de paginas
 var tamanioPagina = 64
 var tamanioMemoria = 4096 // Tamaño total de la memoria en bytes
 var espacioUsuario = make([]byte,tamanioMemoria)
@@ -59,7 +58,6 @@ type FrameInfo struct{
 }
 
 var Ocupadas map[uint]FrameInfo
-var TDPMultinivel map[uint]*Tabla 
 
 func MostrarOcupadas() {
 	fmt.Println("Frames ocupados:")
@@ -129,80 +127,6 @@ func CantidadDePaginasDeProceso(tamanio int) int {
 }
 
 
-func CrearTablaDePaginas(pid uint, tamanio int) {
-	log.Printf("Creando tabla de paginas para el PID %d", pid)
-	paginasRestantes := CantidadDePaginasDeProceso(tamanio)
-	tabla := CreaTablaJerarquica(pid, numeroDeNiveles, &paginasRestantes) // Crea una tabla jerárquica para el PID
-	TDPMultinivel[pid] = tabla // Asigna la tabla al mapa TDP
-}
-
-func GetTDP(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-
-	tablaJSON, err := json.MarshalIndent(TDPMultinivel, "", "  ")
-	if err != nil {
-		http.Error(w, "Error al serializar la tabla de páginas", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(tablaJSON)
-}
-
-// ---------------------------------------- MMU --------------------------------------------- //
-
-// TESTEADO 
-
-func NroPagina(direccionLogica int, pagesize int) int {
-	return direccionLogica / pagesize
-}
-
-func Desplazamiento(direccionLogica int, pagesize int) int {
-	return direccionLogica % pagesize
-}
-
-func EntradaNiveln(direccionlogica int, niveles int, idTabla int, pagesize int, cantEntradas int) int {
-	return (NroPagina(direccionlogica, (pagesize^(niveles - idTabla))) % cantEntradas )
-}
-
-
-func MMU(pid uint, direccionLogica int) int {
-
-	desplazamiento := Desplazamiento(direccionLogica, tamanioPagina)
-	tabla := TDPMultinivel[pid] // Obtengo la tabla de páginas del PID
-
-	if tabla == nil {	
-		log.Printf("No se pudo obtener la tabla de páginas para el PID %d", pid)
-		return -1
-	}
-	
-	raiz := tabla
-	for nivel := 1; nivel <= numeroDeNiveles; nivel++ {
-		entrada := EntradaNiveln(direccionLogica, numeroDeNiveles, nivel, tamanioPagina, entradasPorPagina)
-
-		// Si llegamos al nivel final => queda buscar el frame unicamente 
-		if nivel == numeroDeNiveles {
-
-			if entrada >= len(raiz.Valores) || raiz.Valores[entrada] == -1 { // verifico si la entrada es válida
-				log.Printf("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
-				return -1 // Dirección no mapeada
-			}
-		frame := raiz.Valores[entrada] // Obtengo el frame correspondiente a la entrada
-		return frame*tamanioPagina + desplazamiento // Esto es el frame correspondiente a la dirección lógica 
-		}
-
-		// Si estamos en niveles intermedios => seguimos recorriendo la tabla de páginas
-		if entrada >= len(raiz.Punteros) || raiz.Punteros[entrada] == nil { 
-			log.Printf("Dirección lógica %d no está mapeada en la tabla de páginas del PID %d", direccionLogica, pid)
-			return -1 // Dirección no mapeada
-		}
-		raiz = raiz.Punteros[entrada] // Avanzamos al siguiente nivel de la tabla de páginas
-	}
-
-	log.Printf("Error al procesar la dirección lógica %d para el PID %d", direccionLogica, pid)
-	return -1 // Si llegamos hasta aca => error en el procesamiento de la dirección lógica
-}
 
 func MarcarPrimerosNOcupados(n int, pid int) {
 	for i := 0; i < n; i++ {
@@ -236,29 +160,18 @@ func MostrarFramesOcupados() {
 
 func main() {
 
-	log.Println("Iniciando el sistema de paginación multinivel...")
-
-	// Inicializar las estructuras necesarias
-	Ocupadas = make(map[uint]FrameInfo)
-	TDPMultinivel = make(map[uint]*Tabla)
-
-	for i := 0; i < tamanioMemoria/tamanioPagina; i++ {
-		Ocupadas[uint(i)] = FrameInfo{EstaOcupado: false, PID: -1}
-	}
-
-	fmt.Println("Marco los primeros 12 frames ocupados para el PID 111")
-	MarcarPrimerosNOcupados(12, 111)
-
-	fmt.Println("Creando tabla de páginas para el PID 15. Con tamaño de 128 bytes")
-	paginas := CantidadDePaginasDeProceso(128)
-	TDPMultinivel[15] = CreaTablaJerarquica(15, numeroDeNiveles, &paginas) // Crea una tabla jerárquica para el PID 15)
-	MostrarTablaArbol(TDPMultinivel[15], "", true) // Muestra la tabla jerárquica creada
-
-	fmt.Println("MMU para dirección 0 del proceso PID = 15 => ", MMU(15, 64)) // Prueba de MMU para la dirección lógica 0 del PID 15
+	// MostrarCache()
 	
-	MostrarFramesOcupados()
+	Write(1001, WriteInstruction{Address: 0, Data: "Santino Rondini", PID: 1001})
 
-	http.HandleFunc("/tdp", GetTDP) // Ruta para obtener la tabla de páginas en formato JSON
-	http.ListenAndServe(":8080", nil) // Inicia el servidor HTTP para servir la tabla de páginas
+	time.Sleep(5 * time.Second) // Espera para que se procese la escritura
+	MostrarCache()
+	MostrarTLB()
 
+	time.Sleep(5 * time.Second) // Espera para que se procese la escritura
+	Write(1001, WriteInstruction{Address: 20, Data: "Facultad de Ingenieria", PID: 1001})
+
+	time.Sleep(10 * time.Second) // Espera para que se procese la escritura
+	MostrarCache()
+	MostrarTLB()
 }
