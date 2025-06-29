@@ -10,14 +10,13 @@ import (
 )
 
 /*
-
-Cosas para testear:
+Cosas para testear
 
 - Agregado de pagina a cache => Testeado
 - Remplazo de pagina en cache 
 - Verificacion de si una pagina esta en cache => Testeado
 - Verificacion de si una pagina fue modificada => Testeado
-- Envio de pagina a memoria 
+- Envio de pagina a memoria
 */
 
 type ConfigStruct struct {
@@ -28,7 +27,7 @@ type ConfigStruct struct {
 }
 
 var Config ConfigStruct = ConfigStruct{
-	CacheEntries: 10, // Por ejemplo, 10 entradas en la caché
+	CacheEntries: 5, // Por ejemplo, 10 entradas en la caché
 	CacheReplacement: "CLOCK", // Algoritmo de reemplazo de caché
 	IPMemory: "127.0.0.1", // IP del servidor de memoria
 	PortMemory: 8002, // Puerto del servidor de memoria
@@ -36,6 +35,7 @@ var Config ConfigStruct = ConfigStruct{
 
 type PaginaCache struct {
 	NumeroPagina int // Numero de pagina en la tabla de paginas
+	NumeroFrame int
 	BitPresencia bool // Indica si el frame esta presente en memoria
 	BitModificado bool // Indica si el frame ha sido modificado
 	BitDeUso bool // Indica si el frame ha sido usado recientemente
@@ -65,15 +65,17 @@ func MostrarCache() {
 }
 
 func InicializarCache() CacheStruct {
+	
 	paginas := make([]PaginaCache, Config.CacheEntries) // Slice vacío, capacidad predefinida
 	
-		for i := 0; i < Config.CacheEntries; i++ {
+	for i := 0; i < Config.CacheEntries; i++ {
 		paginas[i] = PaginaCache{
 			NumeroPagina: -1,
+			NumeroFrame: -1,
 			PID: -1,
 			}
 		}
-	return CacheStruct{
+		return CacheStruct{
 		Paginas: paginas,
 		Algoritmo: Config.CacheReplacement,
 	}
@@ -88,6 +90,7 @@ func FueModificada(pagina PaginaCache) bool {
 }
 
 func EstaEnCache(pid uint, direccionLogica int) bool {
+	
 	if !CacheHabilitado() {
 		log.Println("Caché no habilitada, no se puede verificar si la página está en caché")
 		return false 
@@ -96,7 +99,7 @@ func EstaEnCache(pid uint, direccionLogica int) bool {
 	paginaLogica := direccionLogica / tamanioPagina // Obtenemos el número de página
 
 	for _, pagina := range Cache.Paginas {
-		if pagina.PID == int(pid) && pagina.NumeroPagina == paginaLogica && pagina.BitPresencia {
+		if pagina.PID == int(pid) && pagina.NumeroPagina == paginaLogica {
 			return true // La página está en la caché
 		}
 	}
@@ -179,9 +182,10 @@ func EliminarEntradasDeCache(pid uint) {
 	}
 }
 
-func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) PaginaCache {
+func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte, frame int) PaginaCache {
 	return PaginaCache{
 		NumeroPagina: nropagina,
+		NumeroFrame: frame,
 		BitPresencia: true, // La pagina esta presente en memoria
 		BitModificado: false, // Inicialmente no ha sido modificada
 		BitDeUso: true, // Inicialmente se considera que la pagina ha sido usada
@@ -190,23 +194,22 @@ func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte) PaginaCach
 	}
 }
 
-func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
+func PedirFrameAMemoria(pid uint, direccionLogica int, direccionFisica int) (PaginaCache, error) {
 	
-	direccionFisica := MMU(pid, nropagina)
+	nropagina := direccionLogica / tamanioPagina // Obtenemos el numero de pagina
+
 	log.Printf("Pidiendo frame a memoria para PID %d, Numero de pagina %d, Direccion fisica %d", pid, nropagina, direccionFisica) 
-	
 	url := fmt.Sprintf("http://%s:%d/pedirFrame?pid=%d&direccion=%d", Config.IPMemory, Config.PortMemory, pid, direccionFisica)
-	log.Printf("GET HECHO PARA PEDIR FRAME")
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Println("Error al pedir el frame a memoria: %v", err)
+		log.Printf("Error al pedir el frame a memoria: %d", err)
 		return PaginaCache{}, err
 	}
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusOK {
-		log.Println("Error al pedir el frame a memoria, status code: %d", resp.StatusCode)
+		log.Printf("Error al pedir el frame a memoria, status code: %d", resp.StatusCode)
 		return PaginaCache{}, fmt.Errorf("error al pedir el frame a memoria, status code: %d", resp.StatusCode)
 	}
 
@@ -214,20 +217,37 @@ func PedirFrameAMemoria(pid uint, nropagina int) (PaginaCache, error) {
 	var frame []byte 
 	err = json.NewDecoder(resp.Body).Decode(&frame)
 	if err != nil {
-		log.Println("Error al decodificar el frame: %v", err)
+		log.Println("Error al decodificar el frame: ", err)
 		return PaginaCache{}, err
 	}
 
-	paginaCache := CreacionDePaginaCache(pid, nropagina, frame) 
+	paginaCache := CreacionDePaginaCache(pid, nropagina, frame, direccionFisica / tamanioPagina) 
 
 	return paginaCache, nil
 }
 
+func CacheLleno() bool {
+	for i:= 0; i < len(Cache.Paginas); i++ {
+		if Cache.Paginas[i].NumeroPagina == -1 { // Si hay una pagina sin asignar, la cache no esta llena
+			return false 
+		}
+	}
+	return true // Si todas las paginas tienen un numero de pagina asignado, la cache esta llena
+}
+
+func IndiceLibreCache() int {
+	for i := 0; i < len(Cache.Paginas); i++ {
+		if Cache.Paginas[i].NumeroPagina == -1 { // Si hay una pagina sin asignar, retornamos su indice
+			return i
+		}
+	}
+	return -1 // Si no hay paginas libres, retornamos -1
+}
 func AgregarPaginaACache(pagina PaginaCache) {
 	
 	log.Println("Agregando pagina a cache")
 	
-	if len(Cache.Paginas) == Config.CacheEntries {
+	if CacheLleno() {
 		RemplazarPaginaEnCache(pagina) // Reemplazamos una pagina segun el algoritmo de reemplazo
 		if FueModificada(pagina) {
 			log.Println("Pagina modificada, escribiendo en memoria")
@@ -235,7 +255,8 @@ func AgregarPaginaACache(pagina PaginaCache) {
 		}
 		return 
 	} else {
-		Cache.Paginas = append(Cache.Paginas, pagina)
+		indiceLibre := IndiceLibreCache() // Obtenemos el indice de la primera pagina libre
+		Cache.Paginas[indiceLibre] = pagina 
 		log.Println("Pagina agregada a la Cache") 
 		return 
 	}
@@ -327,17 +348,14 @@ func IndiceDeCacheVictima() int {
 
 func TraducirDireccion(pid uint, direccion int) int {
 
-	log.Println("Traduciendo dirección lógica a física")
 	paginaLogica := direccion / tamanioPagina 
 	offset := Desplazamiento(direccion, tamanioPagina) // Desplazamiento dentro de la página
 
-	log.Println("Accediendo a TLB")
 	// 1. Preguntamos a TLB
 	frame := AccesoATLB(int(pid), paginaLogica) // Verificamos si la página está en la TLB
 	if frame != -1{
 		return frame * tamanioPagina + offset // Retornamos la dirección física
 	} 
-	log.Println("Página no encontrada en TLB, buscando en tabla de páginas - MMU")
 	// 2. Si no está en TLB, buscamos en la tabla de páginas
 	direccionFisica := MMU(pid, direccion) // Obtenemos el frame físico correspondiente a la página lógica
 	if direccionFisica == -1 {
@@ -363,7 +381,7 @@ func Write(pid uint, inst WriteInstruction) {
 
 	direccionFisica := TraducirDireccion(pid, inst.LogicAddress) // Traducimos la dirección lógica a física
 	if direccionFisica == -1 {
-		log.Println("Error al traducir la dirección lógica %d para el PID %d", inst.LogicAddress, pid)
+		log.Printf("Error al traducir la dirección lógica %d para el PID %d", inst.LogicAddress, pid)
 		return
 	}
 
@@ -373,24 +391,21 @@ func Write(pid uint, inst WriteInstruction) {
 		PID:     pid, // Asignamos el PID del proceso
 	}
 
-	log.Println("Mensaje mandado a memoria para escribir")
 	resp := EnviarMensaje(Config.IPMemory, Config.PortMemory, "write" , inst2)
 	if resp != "OK" {
-		log.Println("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.LogicAddress)
+		log.Printf("Error al escribir en memoria para el PID %d, dirección %d", pid, inst.LogicAddress)
 		return
 	}
-
-	log.Println("Escritura exitosa. - Agregando página a caché")
 	
 	// Si la página no estaba en cache, pedirla a memoria
-	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress)
+	pagina, err := PedirFrameAMemoria(pid, inst.LogicAddress, direccionFisica)
 	if err != nil {
-		log.Println("Error al pedir el frame a memoria: %v", err)
+		log.Printf("Error al pedir el frame a memoria: %v", err)
 		return
 	}
 
-	log.Println("PAGINA CACHE CREADA: ", pagina)
 	AgregarPaginaACache(pagina)
+	log.Println("Escritura Exitosa")
 	return 
 }
 
@@ -426,6 +441,6 @@ func EnviarMensaje(ip string, puerto int, endpoint string, mensaje any) string {
 	}
 
 	// log.Printf("respuesta del servidor: %s", resp.Status)
-	log.Printf("Respuesta =", resData)
+	log.Printf("Respuesta: ", resData)
 	return resData.Mensaje
 }

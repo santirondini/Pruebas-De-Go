@@ -14,20 +14,21 @@ type WriteInstruction struct {
 }
 
 func InicializarTLB() TLB {
-	entradas := make([]EntradaTLB, 0, Config.CacheEntries)
-	for i := 0; i < Config.CacheEntries; i++ {
-		entradas = append(entradas, EntradaTLB{
-			NumeroPagina:        -1, // Inicialmente no hay páginas cargadas
-			NumeroFrame:         -1, // Inicialmente no hay frames asignados
-			BitPresencia:        false, // Inicialmente no hay páginas presentes
-			PID:                 -1, // Inicialmente no hay PID asignado
-			InstanteDeReferencia: 0, // Inicialmente no hay instante de referencia
-		})
+	entradas := make([]EntradaTLB, Config.CacheEntries)
+	for i := range entradas {
+		entradas[i] = EntradaTLB{
+			NumeroPagina: -1, // -1 indica entrada vacía
+			NumeroFrame:  -1,
+			BitPresencia: false,
+			PID:          -1,
+			Referencia: -1,
+			Llegada: -1, // -1 indica que la entrada no ha sido utilizada
+		}
 	}
 	return TLB{
-		Entradas:    entradas,
+		Entradas: entradas, // Inicializa las entradas de la TLB con el tamaño máximo configurado
 		MaxEntradas: Config.CacheEntries,
-		Algoritmo:   Config.CacheReplacement,
+		Algoritmo:   "LRU",
 	}
 }
 var tlb TLB = InicializarTLB()
@@ -43,7 +44,8 @@ type EntradaTLB struct {
 	NumeroFrame         int  `json:"numero_frame"`
 	BitPresencia        bool `json:"bit_presencia"`    // Indica si el frame esta presente en memoria
 	PID                 int  `json:"pid"`              // Identificador del proceso al que pertenece el frame
-	InstanteDeReferencia int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
+	Referencia int  `json:"instante_referencia"` // Marca el instante de referencia para LRU
+	Llegada int  `json:"llegada"` // Marca el instante de llegada para FIFO
 }
 
 func TLBHabilitada() bool {
@@ -60,6 +62,19 @@ func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la p
 	return false,-1 // La página no está en la TLB o no es válida
 }
 
+func ActualizarReferencia(indice int ) {
+	entradaReferenciada := tlb.Entradas[indice]
+	entradaReferenciada = EntradaTLB{
+		NumeroPagina: tlb.Entradas[indice].NumeroPagina, // Mantenemos el número de página
+		NumeroFrame: tlb.Entradas[indice].NumeroFrame, // Mantenemos el número de frame
+		BitPresencia: tlb.Entradas[indice].BitPresencia, //
+		PID: tlb.Entradas[indice].PID, // Mantenemos el PID
+		Llegada: tlb.Entradas[indice].Llegada, // Manten
+		Referencia: int(time.Now().UnixNano()), // Actualizamos el instante de referencia
+	}
+	tlb.Entradas[indice] = entradaReferenciada // Actualizamos la entrada en la TLB
+	return 
+}
 
 func AccesoATLB(pid int, nropagina int) int {
 	
@@ -70,7 +85,8 @@ func AccesoATLB(pid int, nropagina int) int {
 	
 	bool, indice := BuscarDireccion(nropagina) // Verificamos si la página está en la TLB
 	if bool { 
-		log.Println("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
+		log.Printf("PID: < %d > - TLB HIT - Página: %d", pid, nropagina)
+		ActualizarReferencia(indice) // Actualizamos la referencia de la entrada en la TLB
 		return tlb.Entradas[indice].NumeroFrame // Si la página está en la TLB, devolvemos el frame y true
 	} else {
 		log.Println("PID: < %d > - TLB MISS - Página: %d", pid, nropagina)
@@ -78,23 +94,39 @@ func AccesoATLB(pid int, nropagina int) int {
 	}
 }
 
-func IndiceDeEntradaVictima() int {
+func IndiceDeEntradaVictima(segun func(EntradaTLB) int) int {
 		
-	if tlb.Algoritmo == "FIFO" {
-		return 0 
-	} else { // LRU
-		tiempoActual := int(time.Now().UnixNano()) // tiempo actual en nanosegundos (convertido a int)
-		indice := 0
-		victima := 0
-		for indice < len(tlb.Entradas) {
-			if tlb.Entradas[indice].InstanteDeReferencia < tiempoActual { // Si el instante de referencia es menor al tiempo actual, es una candidata a ser la victima
-				victima = indice 
-			}
-			indice++
+	victima := tlb.Entradas[0] // Inicializamos la víctima con la primera entrada
+	indice := 0
+	for i:=0; i < len(tlb.Entradas); i++{
+		if segun(victima) > segun(tlb.Entradas[i]) { // Comparamos la entrada actual con la víctima
+			victima = tlb.Entradas[i] // Si la entrada actual es más
+			indice = i // Actualizamos el índice de la víctima
 		}
-		return victima
+
 	}
+	return indice 
 }
+
+
+func TLBLleno() bool {
+	for i:= 0; i < len(tlb.Entradas); i++ {
+		if tlb.Entradas[i].NumeroPagina == -1 { // Si hay una entrada con número de página -1, significa que la TLB no está llena
+			return false // La TLB no está llena
+		}
+	}
+	return true 
+}
+
+func EntradaTLBValida() int {
+	for i := 0; i < len(tlb.Entradas); i++ {
+		if tlb.Entradas[i].NumeroPagina == -1 { // Si hay una entrada con número de página -1, significa que la TLB tiene espacio
+			return i // Retorna el índice de la entrada válida
+		}
+	}
+	return -1 // Si no hay entradas válidas, retorna -1
+}
+
 
 func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 
@@ -103,15 +135,23 @@ func AgregarEntradaATLB(pid int, nropagina int, nroframe int) {
 		NumeroFrame: nroframe,
 		BitPresencia: true, // La pagina esta presente en memoria
 		PID: pid, // Asignamos el PID del proceso
-		InstanteDeReferencia: int(time.Now().UnixNano()), // Asignamos el instante de referencia actual
+		Referencia: int(time.Now().UnixNano()), // Asignamos el instante de referencia actual
+		Llegada: int(time.Now().UnixNano()), // Asignamos el instante de llegada actual
 	}
 
-	if len(tlb.Entradas) == tlb.MaxEntradas { // si la cantidad de entradas es la maxima => hay que reemplazar
-		indiceVictima := IndiceDeEntradaVictima() 
+	if TLBLleno() { // si la cantidad de entradas es la maxima => hay que reemplazar
+		indiceVictima := IndiceDeEntradaVictima(func(e EntradaTLB) int {
+			if Config.CacheReplacement == "FIFO" {
+				return e.Llegada
+			} else {
+				return e.Referencia 
+			}
+		}) 
 		tlb.Entradas[indiceVictima] = nuevaEntrada // reemplazo  la entrada victima por la nueva entrada
 		return 
 	} else { // si no esta lleno, agrego la nueva entrada al final
-		tlb.Entradas = append(tlb.Entradas, nuevaEntrada)
+		indiceRemplazo := EntradaTLBValida() // Busco una entrada valida para agregar la nueva entrada
+		tlb.Entradas[indiceRemplazo] = nuevaEntrada
 		return 
 	}
 }
@@ -123,7 +163,7 @@ func MostrarTLB() {
 	}
 	log.Println("Contenido de la TLB:")
 	for i, entrada := range tlb.Entradas {
-		log.Printf("Entrada %d: PID=%d | Página=%d | Frame=%d | Presente=%v | InstanteReferencia=%d",
-			i, entrada.PID, entrada.NumeroPagina, entrada.NumeroFrame, entrada.BitPresencia, entrada.InstanteDeReferencia)
+		log.Printf("Entrada %d: PID=%d | Página=%d | Frame=%d | Presente=%v | InstanteReferencia=%d | Llegada=%d",
+			i, entrada.PID, entrada.NumeroPagina, entrada.NumeroFrame, entrada.BitPresencia, entrada.Referencia, entrada.Llegada)
 	}
 }

@@ -3,8 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
-	// "time"
+	"time"
 )
 
 
@@ -163,42 +162,42 @@ func main() {
 
 	// MostrarCache()
 
-	// time.Sleep(2 * time.Second) // Espera para que se procese la escritura
-	// Write(1001, WriteInstruction{LogicAddress: 120, Data: "Santino Rondini", PID: 1001})
+	time.Sleep(2 * time.Second) // Espera para que se procese la escritura
+	Write(1001, WriteInstruction{LogicAddress: 320, Data: "Soy", PID: 1001})
+	Write(1001, WriteInstruction{LogicAddress:  64, Data: "un", PID: 1001})
+	Write(1001, WriteInstruction{LogicAddress: 192, Data: "test", PID: 1001})
+	Write(1001, WriteInstruction{LogicAddress: 128, Data: "de", PID: 1001})
+	Write(1001, WriteInstruction{LogicAddress: 0, Data: "escritura", PID: 1001})
+
+	fmt.Println("Orden de pedido: 320, 64, 192, 128, 0 -- La ultima referenciada es la pagina 0")
+	MostrarTLB()
+
+
+	time.Sleep(5 * time.Second)
+	fmt.Println("Referencio la pagina del 320 => LA PAGINA 64 ES LA MAS VIEJA ")
+	
+	Write(1001, WriteInstruction{LogicAddress: 350, Data: "nashe", PID: 1001})
+
+	fmt.Println("---------------------------------------------")
+	fmt.Println("---------------------------------------------")
+	
+	MostrarTLB()
+
+	time.Sleep(2 * time.Second)	
+	fmt.Println("ESCRIBO EN 448 => NUEVA ENTRADA")
+
+	fmt.Println("---------------------------------------------")
+	fmt.Println("---------------------------------------------")
+
+
+	Write(1001, WriteInstruction{LogicAddress:448, Data: "otra vez", PID: 1001})
+	time.Sleep(2 * time.Second)
+
+	fmt.Println("---------------------------------------------")
+	fmt.Println("---------------------------------------------")
 
 	
-	// time.Sleep(5 * time.Second) // Espera para que se procese la escritura
-	
-	MostrarCache()
-
-	
-	fmt.Println("--------------------------------------")
-
-	
-	// MostrarTLB()
-
-	
-	fmt.Println("--------------------------------------")
-
-	// time.Sleep(5 * time.Second) // Espera para que se procese la escritura
-	// Write(1001, WriteInstruction{LogicAddress: 250, Data: "Facultad de Ingenieria", PID: 1001})
-
-	
-	// fmt.Println("--------------------------------------")
+	MostrarTLB()
 
 
-	// time.Sleep(10 * time.Second) // Espera para que se procese la escritura
-	// MostrarCache()
-
-
-	
-	// fmt.Println("--------------------------------------")
-	// MostrarTLB()
-
-
-
-	
-	// fmt.Println("--------------------------------------")
-
-	http.ListenAndServe(":8080", nil) // Inicia el servidor HTTP para manejar las solicitudes
 }
