@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"log"
 	"io"
+	"strconv"
 )
 
 /*
@@ -28,7 +29,7 @@ type ConfigStruct struct {
 
 var Config ConfigStruct = ConfigStruct{
 	CacheEntries: 5, // Por ejemplo, 10 entradas en la caché
-	CacheReplacement: "CLOCK", // Algoritmo de reemplazo de caché
+	CacheReplacement: "CLOCK-M", // Algoritmo de reemplazo de caché
 	IPMemory: "127.0.0.1", // IP del servidor de memoria
 	PortMemory: 8002, // Puerto del servidor de memoria
 }
@@ -57,7 +58,6 @@ func MostrarPaginaCache(pagina PaginaCache) {
 }
 
 func MostrarCache() {
-	
 	log.Println("Contenido de la caché => ")
 	for i:=0; i < Config.CacheEntries; i++ {
 		MostrarPaginaCache(Cache.Paginas[i])
@@ -78,6 +78,7 @@ func InicializarCache() CacheStruct {
 		return CacheStruct{
 		Paginas: paginas,
 		Algoritmo: Config.CacheReplacement,
+		Clock: 0, 
 	}
 }
 
@@ -142,10 +143,10 @@ func MandarDatosAMP(paginas PaginaCache) {
 	log.Println("Pagina enviada a la memoria correctamente")
 }
 
-func PaginasModificadas() []PaginaCache {
+func PaginasModificadasCache(pid uint) []PaginaCache {
 	var paginasModificadas []PaginaCache
 	for _, pagina := range Cache.Paginas {
-		if FueModificada(pagina) {
+		if FueModificada(pagina) && pagina.PID == int(pid) { // Verificamos si la pagina fue modificada y pertenece al PID
 			paginasModificadas = append(paginasModificadas, pagina)
 		}
 	}
@@ -155,32 +156,47 @@ func PaginasModificadas() []PaginaCache {
 // Debe venir una request de memoria o kernel
 func DesaolojoDeProceso(w http.ResponseWriter, r *http.Request){
 	
-	modificadas := PaginasModificadas()
-	
+	pidStr := r.URL.Query().Get("pid") // Obtenemos el PID del proceso a desalojar
+	pidInt, err := strconv.Atoi(pidStr)
+	if err != nil {
+		log.Printf("Error al convertir el PID a entero: %v", err)
+		http.Error(w, "PID inválido", http.StatusBadRequest)
+		return
+	}
+	modificadas := PaginasModificadasCache(uint(pidInt))
 	if len(modificadas) == 0 {
 		w.Write([]byte("No hay paginas modificadas. No se actualiza memoria"))
 		w.WriteHeader(http.StatusOK) // No hay paginas modificadas, todo bien
 		return 
 	}
+	DesalojarCache(modificadas)
+	DesalojoTlB(uint(pidInt)) // Desalojamos las entradas de TLB del PID
+	EliminarEntradasDeCache(uint(pidInt)) // Eliminamos las entradas de cache del PID
+	return 
+}
 
+func DesalojarCache(modificadas []PaginaCache) {
 	for i:=0; i < len(modificadas); i++ {
-		// Consulto direccion fisica => TLB
-		// contenido := modificadas[i].Contenido
-		// Write de su contenido => pegarle al endpoint de memoria wirite
-		// eliminar todas las entradas del caché 
-		return
+		contenido := modificadas[i].Contenido // Obtenemos el contenido de la pagina modificada
+		EnviarMensaje(Config.IPMemory, Config.PortMemory, "actualizarMP", contenido) // Enviamos el contenido a memoria)	
 	}
+	return
 }
 
 func EliminarEntradasDeCache(pid uint) {
 	log.Printf("Eliminando entradas de caché para el PID %d", pid)
 	for i := 0; i < len(Cache.Paginas); i++ {
 		if Cache.Paginas[i].PID == int(pid) { // Si el PID coincide, eliminamos la entrada
-			Cache.Paginas[i] = PaginaCache{} // Reinicializamos la entrada
-			log.Println("Entrada de caché eliminada para el PID %d", pid)
+			Cache.Paginas[i] = PaginaCache{
+			NumeroPagina: -1,
+			NumeroFrame: -1,
+			PID: -1,
+			}
+		}
+			log.Printf("Entrada de caché eliminada para el PID %d", pid)
 		}
 	}
-}
+
 
 func CreacionDePaginaCache(pid uint, nropagina int, contenido []byte, frame int) PaginaCache {
 	return PaginaCache{
@@ -286,9 +302,11 @@ func EscribirEnCache(pid uint, logicAdress int, data string) {
 	offset := logicAdress % tamanioPagina 
 	pagina := Cache.Paginas[indice].Contenido
 	copy(pagina[offset:], []byte(data)) // Escribimos el contenido en la pagina de Cache
+
 	Cache.Paginas[indice].Contenido = pagina // Actualizamos el contenido de la pagina en Cache
 	Cache.Paginas[indice].BitModificado = true // Marcamos la pagina como modificada
-	log.Println("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, logicAdress, data)
+	ActualizarReferencia(nropagina) // Actualizamos la referencia de la pagina en TLB
+	log.Printf("Pagina escrita en Cache: PID %d, Direccion %d, Contenido %s", pid, logicAdress, data)
 }
 
 func LeerDeCache(pid uint, adress int, tam int) []byte {
@@ -316,35 +334,75 @@ func LeerDeCache(pid uint, adress int, tam int) []byte {
 }
 
 // Para CLOCK-M
+func PrimeraVueltaClockM() int {
+	vueltas := 0
+	for vueltas < len(Cache.Paginas) {
+		i := Cache.Clock
+		if !Cache.Paginas[i].BitDeUso && !Cache.Paginas[i].BitModificado {
+			log.Printf("Seleccionando pagina victima en Cache: %d - Clock en posición: %d", i, Cache.Clock)
+			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos circularmente
+			return i
+		}
+		Cache.Clock = (Cache.Clock + 1) % len(Cache.Paginas) // Seguimos recorriendo
+		vueltas++
+	}
+	// No se encontró ninguna página con (uso=0, modificado=0)
+	return -1
+}
 
-func IndiceDeCacheVictima() int {
+func SegundaVueltaClockM() int {
+	vueltas := 0
+	for vueltas < len(Cache.Paginas) {
+		i := Cache.Clock
+		if !Cache.Paginas[i].BitDeUso && Cache.Paginas[i].BitModificado {
+			log.Printf("Seleccionando pagina victima en Cache: %d - Clock en posición: %d", i, Cache.Clock)
+			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos circularmente
+			return i
+		}
+		Cache.Paginas[i].BitDeUso = false // Reiniciamos el bit de uso
+		Cache.Clock = (Cache.Clock + 1) % len(Cache.Paginas) // Seguimos recorriendo
+		vueltas++
+	}
+	return -1 // Si no se encuentra una pagina con bits 00, retorna -1
+}
 
-	if Cache.Algoritmo == "CLOCK" {
-		for {
+func BuscarVictimaClockM() int {
+	for {
+		valor := PrimeraVueltaClockM()
+		if valor != -1 {
+			return valor
+		}
+
+		valor = SegundaVueltaClockM()
+		if valor != -1 {
+			return valor
+		}
+	}
+}
+
+func Clock() int {
+	for {
 			i := Cache.Clock 
 			if !Cache.Paginas[i].BitDeUso {
 				Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
+				log.Printf("Seleccionando pagina victima en Cache: %d - Clock en posición: %d", i, Cache.Clock)
 				return i
 			}
 			Cache.Paginas[i].BitDeUso = false  // false = 1
 			Cache.Clock = (i + 1) % len(Cache.Paginas) // Avanzamos al siguiente indice circularmente => por si llegamos al final del vector, poder volver al inicio
 		}  
-	} else {
-		i := 0
-		for i < len(Cache.Paginas) {
-			if !Cache.Paginas[i].BitDeUso && !Cache.Paginas[i].BitModificado {
-				Cache.Paginas[i].BitDeUso = true 
-				return i // Retorna el indice de la primera pagina con bits 00
-			} else {
-				if !Cache.Paginas[i].BitDeUso && Cache.Paginas[i].BitModificado { 
-					Cache.Paginas[i].BitDeUso = true
-					return i;
-				}
-			}
-		}
-	}
-	return -1 // Si no se encuentra una pagina con bits 00, retorna -1
 }
+
+func IndiceDeCacheVictima() int {
+
+	log.Printf("CLOCK INICIALMENTE EN: %d", Cache.Clock)
+	if Cache.Algoritmo == "CLOCK" {
+		return Clock() // Llamamos a la funcion que busca la victima segun el algoritmo CLOC
+	} else { // CLOCK - M
+		return BuscarVictimaClockM() // Llamamos a la funcion que busca la victima segun el algoritmo CLOCK-M
+	}
+}
+
 
 func TraducirDireccion(pid uint, direccion int) int {
 

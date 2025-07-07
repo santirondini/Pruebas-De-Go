@@ -62,7 +62,12 @@ func BuscarDireccion(pagina int) (bool,int) { // devolvemos el frame ya que la p
 	return false,-1 // La página no está en la TLB o no es válida
 }
 
-func ActualizarReferencia(indice int ) {
+func ActualizarReferencia(nropagina int) {
+	bool, indice := BuscarDireccion(nropagina)
+	if !bool { // Si la página no está en la TLB, no se puede actualizar la referencia
+		log.Println("No se puede actualizar la referencia, la página no está en la TLB")
+		return
+	}
 	entradaReferenciada := tlb.Entradas[indice]
 	entradaReferenciada = EntradaTLB{
 		NumeroPagina: tlb.Entradas[indice].NumeroPagina, // Mantenemos el número de página
@@ -165,5 +170,20 @@ func MostrarTLB() {
 	for i, entrada := range tlb.Entradas {
 		log.Printf("Entrada %d: PID=%d | Página=%d | Frame=%d | Presente=%v | InstanteReferencia=%d | Llegada=%d",
 			i, entrada.PID, entrada.NumeroPagina, entrada.NumeroFrame, entrada.BitPresencia, entrada.Referencia, entrada.Llegada)
+	}
+}
+
+func DesalojoTlB(pid uint) {
+	for i := 0; i < len(tlb.Entradas); i++ {
+		if tlb.Entradas[i].PID == int(pid) { // Verificamos si la entrada pertenece al PID
+			tlb.Entradas[i] = EntradaTLB{ // Desalojamos la entrada del PID
+				NumeroPagina: -1, // -1 indica que la entrada está vacía
+				NumeroFrame:  -1,
+				BitPresencia: false,
+				PID:          -1,
+				Referencia: -1,
+				Llegada: -1, // -1 indica que la entrada no ha sido utilizada
+			}
+		}
 	}
 }

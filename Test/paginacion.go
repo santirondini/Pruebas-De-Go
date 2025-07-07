@@ -169,35 +169,26 @@ func main() {
 	Write(1001, WriteInstruction{LogicAddress: 128, Data: "de", PID: 1001})
 	Write(1001, WriteInstruction{LogicAddress: 0, Data: "escritura", PID: 1001})
 
-	fmt.Println("Orden de pedido: 320, 64, 192, 128, 0 -- La ultima referenciada es la pagina 0")
-	MostrarTLB()
+	fmt.Println("Orden de pedido: 320 (pag 5), 64 (pag 1), 192 (pag 3), 128 (pag 2), 0 (pag 0) -- La ultima referenciada es la pagina 0")
+	MostrarCache()
 
-
-	time.Sleep(5 * time.Second)
-	fmt.Println("Referencio la pagina del 320 => LA PAGINA 64 ES LA MAS VIEJA ")
+	fmt.Println("--------------------------------------------")
+	fmt.Println("--------------------------------------------")
+	fmt.Println("Escribo las paginas 1 y 5 en cache")
+	fmt.Println("--------------------------------------------")
+	fmt.Println("--------------------------------------------")
 	
-	Write(1001, WriteInstruction{LogicAddress: 350, Data: "nashe", PID: 1001})
+	Write(1001, WriteInstruction{LogicAddress: 64, Data: "rondini", PID: 1001}) // Modifico la pagina 1
+	Write(1001, WriteInstruction{LogicAddress: 320, Data: "pablo", PID: 1001}) // Modifico la pagina 5
 
-	fmt.Println("---------------------------------------------")
-	fmt.Println("---------------------------------------------")
-	
-	MostrarTLB()
+	MostrarCache()
 
-	time.Sleep(2 * time.Second)	
-	fmt.Println("ESCRIBO EN 448 => NUEVA ENTRADA")
-
-	fmt.Println("---------------------------------------------")
-	fmt.Println("---------------------------------------------")
-
-
-	Write(1001, WriteInstruction{LogicAddress:448, Data: "otra vez", PID: 1001})
-	time.Sleep(2 * time.Second)
-
+	fmt.Println("--------------------------------------------")
+	fmt.Println("Llega la pagina 7 a caché")
+	Write(1001, WriteInstruction{LogicAddress: 448, Data: "nueva pagina", PID: 1001}) // Llega la pagina 7 a caché
 	fmt.Println("---------------------------------------------")
 	fmt.Println("---------------------------------------------")
 
-	
-	MostrarTLB()
-
+	MostrarCache()
 
 }
